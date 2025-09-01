@@ -13,7 +13,7 @@ header h1 { margin:0; font-size:1rem; }
 header nav a { color:white; text-decoration:none; margin-right:8px; font-size:0.85rem;}
 header nav a:hover { text-decoration:underline; }
 .dark-toggle { background:none;border:none;color:white;font-size:1.3rem;cursor:pointer;}
-main { padding-top:80px; min-height:80vh;}
+main { padding-top:120px; min-height:80vh;}
 footer { background:#001f3f;color:#f3f4f6;text-align:center;padding:10px;font-size:0.8rem;}
 h2 { font-size:1.1rem;margin-top:15px; }
 h3 { font-size:0.95rem;margin-top:10px;color:#1f2937; }
@@ -42,6 +42,8 @@ button.expand-btn { border:none;padding:5px 6px;border-radius:4px;cursor:pointer
     canvas { height:180px !important; }
     .controls { font-size:0.8rem; }
 }
+/* Spinner */
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -69,6 +71,17 @@ button.expand-btn { border:none;padding:5px 6px;border-radius:4px;cursor:pointer
 <select id="filterKecamatan"><option value="all">Semua</option></select>
 <label><b>Cari Sekolah:</b></label>
 <input type="text" id="searchBox" placeholder="Nama sekolah...">
+</div>
+
+<!-- Loading Progress -->
+<div id="loadingContainer" style="margin:10px 8px;">
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div id="spinner" style="width:16px; height:16px; border:3px solid #e5e7eb; border-top:3px solid #3b82f6; border-radius:50%; animation:spin 1s linear infinite;"></div>
+    <div id="loadingText">Memuat 0 dari 0 kecamatan...</div>
+  </div>
+  <div style="background:#e5e7eb; border-radius:4px; height:10px; margin-top:4px; overflow:hidden;">
+    <div id="progressBar" style="height:100%; width:0%; background:#3b82f6; transition:0.3s;"></div>
+  </div>
 </div>
 
 <div class="dashboard">
@@ -114,9 +127,9 @@ function parseNumberIndo(val){ if(!val) return 0; val = val.toString().replace(/
 function formatRupiah(num){ return "Rp "+(num||0).toLocaleString("id-ID"); }
 async function fetchData(url){ return new Promise(resolve=>{Papa.parse(url,{download:true,header:true,complete:res=>resolve(res.data)});});}
 
-// CSV endpoints (sesuaikan)
+// CSV endpoints
 const kecamatanEndpoints = {
-    "Banawa": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSCAaRZ9atAiEb-BvMChP_3Wq6wtmUUlNiTWVtwzh7r9KX5sRRZpq5WppSrSebym8z6-qI3zfWQOTNu/pub?gid=0&single=true&output=csv",
+     "Banawa": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSCAaRZ9atAiEb-BvMChP_3Wq6wtmUUlNiTWVtwzh7r9KX5sRRZpq5WppSrSebym8z6-qI3zfWQOTNu/pub?gid=0&single=true&output=csv",
       "Banawa Tengah": "https://docs.google.com/spreadsheets/d/e/2PACX-1vToEAn2MqanfOGSKsDsV0cfGeXt6mJhf7DPEzgFeBl8GQkrbzd4iFuM3tRwyo_wV6m9PlxjQ-9Z0QhC/pub?gid=0&single=true&output=csv",
       "Banawa Selatan": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQwth8ToDewTdvfvhlYuywOolNFwvc6eA4wer_OGKgNk-FoDvIQaHthsQHtMiis3cAsj4AnLzYKXG9p/pub?gid=0&single=true&output=csv",
       "Rio Pakava": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQX_Z6U7nanrMlPxL8N1m40jkFiMAHCIbZQA_iljNj3QZ8Z5FGMTAzYBbAC_D9Xy2PT3fUf0LL0n7F/pub?gid=0&single=true&output=csv",
@@ -137,18 +150,91 @@ const kecamatanEndpoints = {
 let dataKecamatan={}, chartKonfirmasi, chartKondisi, chartNilai;
 
 async function loadAllData(){
-    for(const [kec,url] of Object.entries(kecamatanEndpoints)){
+    const loadingContainer = document.getElementById("loadingContainer");
+    const loadingText = document.getElementById("loadingText");
+    const progressBar = document.getElementById("progressBar");
+
+    const kecamatanKeys = Object.keys(kecamatanEndpoints);
+    const totalKecamatan = kecamatanKeys.length;
+    let loaded = 0;
+
+    loadingContainer.style.display = "block";
+
+    const promises = kecamatanKeys.map(async (kec) => {
+        const url = kecamatanEndpoints[kec];
         const raw = await fetchData(url);
-        dataKecamatan[kec] = raw.map(r=>({
-            sekolah: r["Nama Sekolah"]||"",
-            barang: r["Nama Barang"]||"",
-            konfirmasi: (r["Konfirmasi Keberadaan"]||"tidak ditemukan").toLowerCase().trim(),
-            kondisi: (r["Kondisi"]||"baik").toLowerCase().trim(),
-            nilai: parseNumberIndo(r["Harga Perolehan"]||r["Nilai Perolehan"])
+
+        dataKecamatan[kec] = raw.map(r => ({
+            sekolah: r["Nama Sekolah"] || "",
+            barang: r["Nama Barang"] || "",
+            konfirmasi: (r["Konfirmasi Keberadaan"] || "tidak ditemukan").toLowerCase().trim(),
+            kondisi: (r["Kondisi"] || "baik").toLowerCase().trim(),
+            nilai: parseNumberIndo(r["Harga Perolehan"] || r["Nilai Perolehan"])
         }));
-    }
+
+        updateDataForKecamatan(kec);
+
+        loaded++;
+        loadingText.textContent = `Memuat ${loaded} dari ${totalKecamatan} kecamatan...`;
+        progressBar.style.width = `${(loaded/totalKecamatan)*100}%`;
+    });
+
+    await Promise.all(promises);
+    loadingContainer.style.display = "none";
+
     populateFilter();
     updateData();
+}
+
+function updateDataForKecamatan(kec){
+    const data = dataKecamatan[kec];
+    if(!data) return;
+
+    const tbody = document.querySelector("#rekapTable tbody");
+    const sekolahSection = document.getElementById("sekolahSection");
+    
+    let ditemukan=0,tidak=0,baik=0,ringan=0,berat=0,nilaiBaik=0,nilaiRingan=0,nilaiBerat=0;
+    const sekolahMap={};
+
+    data.forEach(r=>{
+        if(r.konfirmasi==="ditemukan") ditemukan++; else tidak++;
+        if(r.kondisi==="baik"){baik++; nilaiBaik+=r.nilai;}
+        else if(r.kondisi==="rusak ringan"){ringan++; nilaiRingan+=r.nilai;}
+        else if(r.kondisi==="rusak berat"){berat++; nilaiBerat+=r.nilai;}
+
+        if(!sekolahMap[r.sekolah]) sekolahMap[r.sekolah]={barang:0,NilaiBaik:0,NilaiRingan:0,NilaiBerat:0,detail:[]};
+        sekolahMap[r.sekolah].barang++;
+        if(r.kondisi==="baik") sekolahMap[r.sekolah].NilaiBaik+=r.nilai;
+        else if(r.kondisi==="rusak ringan") sekolahMap[r.sekolah].NilaiRingan+=r.nilai;
+        else sekolahMap[r.sekolah].NilaiBerat+=r.nilai;
+        sekolahMap[r.sekolah].detail.push(r);
+    });
+
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${kec}</td><td>${ditemukan}</td><td>${tidak}</td>
+    <td>${baik} (${formatRupiah(nilaiBaik)})</td><td>${ringan} (${formatRupiah(nilaiRingan)})</td>
+    <td>${berat} (${formatRupiah(nilaiBerat)})</td><td>${formatRupiah(nilaiBaik+nilaiRingan+nilaiBerat)}</td>`;
+    tbody.appendChild(tr);
+
+    const kecHeader = document.createElement("h3"); kecHeader.textContent="Kecamatan: "+kec; sekolahSection.appendChild(kecHeader);
+
+    for(const [nama,info] of Object.entries(sekolahMap)){
+        const btn = document.createElement("button"); btn.className="expand-btn";
+        let mayoritas="baik"; 
+        if(info.NilaiRingan>=info.NilaiBaik && info.NilaiRingan>=info.NilaiBerat) mayoritas="ringan";
+        else if(info.NilaiBerat>=info.NilaiBaik && info.NilaiBerat>=info.NilaiRingan) mayoritas="berat";
+        btn.style.background = mayoritas==="baik"?"#3b82f6":mayoritas==="ringan"?"#facc15":"#f87171";
+        btn.textContent=`${nama} (${info.barang} barang)`;
+        btn.onclick=function(){ this.classList.toggle("active"); this.nextElementSibling.classList.toggle("active"); };
+        sekolahSection.appendChild(btn);
+
+        const panel=document.createElement("div"); panel.className="collapsible-panel";
+        const tbl=document.createElement("table"); tbl.style.width="100%";
+        const thead=document.createElement("thead"); thead.innerHTML="<tr><th>Barang</th><th>Kondisi</th><th>Nilai</th></tr>"; tbl.appendChild(thead);
+        const tbodyTbl=document.createElement("tbody");
+        info.detail.forEach(r=>{ const trTbl=document.createElement("tr"); trTbl.innerHTML=`<td>${r.barang}</td><td>${r.kondisi}</td><td>${formatRupiah(r.nilai)}</td>`; tbodyTbl.appendChild(trTbl);});
+        tbl.appendChild(tbodyTbl); panel.appendChild(tbl); sekolahSection.appendChild(panel);
+    }
 }
 
 function populateFilter(){
