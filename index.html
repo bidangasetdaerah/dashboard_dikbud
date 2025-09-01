@@ -33,7 +33,7 @@ body.dark-mode .chart-container, body.dark-mode table { background:#1f2937; colo
 body.dark-mode th { background-color:#0a192f; }
 body.dark-mode td, body.dark-mode h3 { color:#f3f4f6; }
 body.dark-mode .last-update { color:#d1d5db; }
-button.expand-btn { border:none;padding:5px 6px;border-radius:4px;cursor:pointer;margin-bottom:4px; width:100%; text-align:left; font-size:0.85rem; transition:0.3s; }
+button.expand-btn { border:none;padding:5px 6px;border-radius:4px;cursor:pointer;margin-bottom:4px; width:100%; text-align:left; font-size:0.85rem; transition:0.3s; color:#fff; }
 .expand-btn.active + div { display:block; }
 .collapsible-panel { display:none; padding-left:12px; margin-bottom:6px; border-left:2px solid #3b82f6; overflow-x:auto; }
 @media(max-width:500px){
@@ -114,8 +114,9 @@ function parseNumberIndo(val){ if(!val) return 0; val = val.toString().replace(/
 function formatRupiah(num){ return "Rp "+(num||0).toLocaleString("id-ID"); }
 async function fetchData(url){ return new Promise(resolve=>{Papa.parse(url,{download:true,header:true,complete:res=>resolve(res.data)});});}
 
-// Placeholder endpoint CSV
-const kecamatanEndpoints = { "Banawa": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSCAaRZ9atAiEb-BvMChP_3Wq6wtmUUlNiTWVtwzh7r9KX5sRRZpq5WppSrSebym8z6-qI3zfWQOTNu/pub?gid=0&single=true&output=csv",
+// CSV endpoints (sesuaikan)
+const kecamatanEndpoints = {
+    "Banawa": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSCAaRZ9atAiEb-BvMChP_3Wq6wtmUUlNiTWVtwzh7r9KX5sRRZpq5WppSrSebym8z6-qI3zfWQOTNu/pub?gid=0&single=true&output=csv",
       "Banawa Tengah": "https://docs.google.com/spreadsheets/d/e/2PACX-1vToEAn2MqanfOGSKsDsV0cfGeXt6mJhf7DPEzgFeBl8GQkrbzd4iFuM3tRwyo_wV6m9PlxjQ-9Z0QhC/pub?gid=0&single=true&output=csv",
       "Banawa Selatan": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQwth8ToDewTdvfvhlYuywOolNFwvc6eA4wer_OGKgNk-FoDvIQaHthsQHtMiis3cAsj4AnLzYKXG9p/pub?gid=0&single=true&output=csv",
       "Rio Pakava": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQX_Z6U7nanrMlPxL8N1m40jkFiMAHCIbZQA_iljNj3QZ8Z5FGMTAzYBbAC_D9Xy2PT3fUf0LL0n7F/pub?gid=0&single=true&output=csv",
@@ -130,7 +131,8 @@ const kecamatanEndpoints = { "Banawa": "https://docs.google.com/spreadsheets/d/e
       "Balaesang Tanjung": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQljJh_fOmCwjRVlTt5k8WxpN3TzaSyhWDXNnkDjI8hm62x1jdE41mXNENd2iGUueNyuXJuLa4jpoF6/pub?gid=0&single=true&output=csv",
       "Dampelas": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTTIi8ZSNx9-MetxVLFAxiS4MeBiFOuOeYbe4_Bf9EEQ2btWYDfIY15B6r_tBg33l0AFATRQrdoQyMq/pub?gid=0&single=true&output=csv",
       "Sojol": "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_M8W7eNSRgJiDs-lU0zBDAT2OEAN6J1g1G9UvgreUf7GS0_Q987XsgzYdDESWAu_P86BezxKn6nJl/pub?gid=0&single=true&output=csv",
-      "Sojol Utara": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJAkrtkVPBLcUmM8OsByQDfndFGv-6MetoMsB_DGoqimZQGcAg9Lxe_glv_qAJoVXoY9TCHdnCDa6Y/pub?gid=0&single=true&output=csv"}; // ganti URL CSV
+      "Sojol Utara": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJAkrtkVPBLcUmM8OsByQDfndFGv-6MetoMsB_DGoqimZQGcAg9Lxe_glv_qAJoVXoY9TCHdnCDa6Y/pub?gid=0&single=true&output=csv"
+};
 
 let dataKecamatan={}, chartKonfirmasi, chartKondisi, chartNilai;
 
@@ -197,9 +199,10 @@ function updateData(){
 
         for(const [nama,info] of Object.entries(sekolahMap)){
             const btn = document.createElement("button"); btn.className="expand-btn";
-            let mayoritas="baik"; if(info.NilaiRingan>=info.NilaiBaik && info.NilaiRingan>=info.NilaiBerat) mayoritas="ringan";
+            let mayoritas="baik"; 
+            if(info.NilaiRingan>=info.NilaiBaik && info.NilaiRingan>=info.NilaiBerat) mayoritas="ringan";
             else if(info.NilaiBerat>=info.NilaiBaik && info.NilaiBerat>=info.NilaiRingan) mayoritas="berat";
-            btn.style.background = mayoritas==="baik"?"#3b82f6":mayoritas==="ringan"?"#facc15":"#f87171"; btn.style.color="#fff";
+            btn.style.background = mayoritas==="baik"?"#3b82f6":mayoritas==="ringan"?"#facc15":"#f87171";
             btn.textContent=`${nama} (${info.barang} barang)`;
             btn.onclick=function(){ this.classList.toggle("active"); this.nextElementSibling.classList.toggle("active"); };
             sekolahSection.appendChild(btn);
